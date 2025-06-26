@@ -1,3 +1,4 @@
 Mongo = exports['fivemongo']
 
-DB = exports['fivemongo']
+
+FiveMongo= exports['fivemongo']
