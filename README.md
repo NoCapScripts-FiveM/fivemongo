@@ -62,4 +62,18 @@ set mongoDatabase "db"
 ```
 
 
+or 
+
+
+
+```cfg
+
+set mongoCredentials "mongodb://localhost:27017/db"
+set mongoDatabase "db"
+
+```
+
+
+
+
 
