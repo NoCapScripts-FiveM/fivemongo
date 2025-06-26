@@ -8,6 +8,7 @@ version "3.6.7-beta"
 
 
 shared_scripts {
+    
     "init.lua",
     "@ox_lib/init.lua",
 }

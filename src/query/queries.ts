@@ -90,11 +90,11 @@ class MongoDB {
   }
 
   async updateOne(collection: string, query: any, newData: any) {
-    return this.collection(collection).updateOne(query, { $set: newData });
+    return this.collection(collection).updateOne(query, { $inc: newData });
   }
 
   async updateMany(collection: string, query: any, newData: any) {
-    return this.collection(collection).updateMany(query, { $set: newData });
+    return this.collection(collection).updateMany(query, { $inc: newData });
   }
 
   async deleteOne(collection: string, query: any) {
