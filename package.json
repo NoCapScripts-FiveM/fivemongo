@@ -9,13 +9,12 @@
     "watch": "esbuild --watch --bundle --platform=node --target=node16.9.1 src/index.ts --outfile=dist/build.js"
   },
   "devDependencies": {
-    "esbuild": "^0.20.0",
-    "typescript": "^5.3.3"
+    "esbuild": "^0.25.5",
+    "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@citizenfx/server": "^2.0.7401-1",
-    "@types/mongodb": "^4.0.7",
-    "@types/node": "^20.11.15",
-    "perf_hooks": "^0.0.1"
+    "@citizenfx/server": "^2.0.14862-1",
+    "@types/node": "^24.0.4",
+    "mongodb": "^4.15.0"
   }
 }
