@@ -73,6 +73,11 @@ class MongoDB {
     return this.db.collection(name);
   }
 
+  async getAll(collection: string, limit: number = 100) {
+    return await this.collection(collection).find().limit(limit).toArray();
+  }
+
+
   async findOne(collection: string, query: any) {
     return this.collection(collection).findOne(query);
   }
@@ -192,7 +197,8 @@ export async function FindOne(
 ) {
   try {
     const result = await mongo.findOne(collection, query);
-    return handleCallbackAndError(formatResult(result), callback);
+    /* return handleCallbackAndError(formatResult(result), callback); */
+    return result
   } catch (error) {
     return handleError(error, callback);
   }
@@ -210,6 +216,34 @@ export async function FindMany(
     return handleError(error, callback);
   }
 }
+
+
+export async function FindAll(
+  collection: string,
+  limit: number,
+  callback?: Function
+) {
+  try {
+  
+    const result = await mongo.getAll(collection, limit);
+    
+   
+    const formatted = result.map(formatResult);
+
+    if (callback) {
+      return callback(null, formatted); // Success via callback
+    }
+
+    return formatted; // Success via return
+  } catch (error) {
+    if (callback) {
+      return callback(error); // Error via callback
+    }
+
+    throw error; // Error via exception
+  }
+}
+
 
 export async function UpdateOne(
   collection: string,
