@@ -17,3 +17,4 @@ for (const [name, fn] of Object.entries(TheQueries)) {
 setTimeout(() => {
   console.log("^2MongoDB module loaded and ready^7");
 }, 500);
+

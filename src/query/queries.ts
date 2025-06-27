@@ -4,44 +4,51 @@ import {
   Document,
   MongoClient,
   MongoClientOptions,
-  Db
+  Db,
+  InsertOneResult,
+  InsertManyResult,
+  DeleteResult,
+  UpdateManyResult,
 } from "mongodb";
 
-/* @ts-ignore */
+// Config from env or fallback
 const url: string = GetConvar("mongoCredentials", "none");
-/* @ts-ignore */
 const dbName: string = GetConvar("mongoDatabase", "none");
+
 /* @ts-ignore */
 RegisterNetEvent("frmz-mongodb:DatabaseConnected");
 
-type UpdatedDocument = WithId<Document> & { _id: string };
+type Result<T = any> = {
+ /*  success: boolean; */
+  data?: T;
+  error?: string | null;
+};
+
+type Error<T = any> = {
+  success: boolean;
+  error?: any | null;
+};
 
 class MongoDB {
-  client: MongoClient;
-  dbName: string;
-  connected: boolean = false;
-  db: Db | null = null;
+  private client: MongoClient;
+  private db: Db | null = null;
+  private connected = false;
 
-  constructor(url: string, dbName: string) {
-    if (url === "none" || dbName === "none")
-      throw new Error(
-        'Both `url` and `dbName` must be provided and cannot be "none".'
-      );
+  constructor(private url: string, private dbName: string) {
+    if (url === "none" || dbName === "none") {
+      throw new Error("Both `url` and `dbName` must be provided and cannot be 'none'");
+    }
 
-    this.dbName = dbName;
-    this.client = new MongoClient(url, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    } as MongoClientOptions);
+    this.client = new MongoClient(this.url); // Options are no longer needed here
   }
 
-  async connect() {
+  async connect(): Promise<void> {
     await this.client.connect();
     this.db = this.client.db(this.dbName);
     this.connected = true;
   }
 
-  async close() {
+  async close(): Promise<void> {
     await this.client.close();
     this.connected = false;
   }
@@ -50,267 +57,294 @@ class MongoDB {
     return this.connected;
   }
 
-  async isDBexist(): Promise<boolean> {
+  async checkDatabaseExists(): Promise<boolean> {
     const admin = this.client.db().admin();
-    const dbInfo = await admin.listDatabases();
-    const isDbExist = dbInfo.databases.some((db) => db.name === this.dbName);
-    this.connected = isDbExist;
+    const { databases } = await admin.listDatabases();
+    const exists = databases.some((db) => db.name === this.dbName);
 
-    if (isDbExist) {
+    if (exists) {
       emit("frmz-mongodb:DatabaseConnected");
       console.log(`\x1b[36m[MongoDB]\x1b[0m Connected to "${this.dbName}".`);
     } else {
-      console.log(
-        `\x1b[36m[MongoDB]\x1b[31m[ERROR]\x1b[0m Cannot connect to "${this.dbName}".`
-      );
+      console.error(`\x1b[36m[MongoDB]\x1b[31m[ERROR]\x1b[0m Cannot connect to "${this.dbName}".`);
     }
 
-    return isDbExist;
+    this.connected = exists;
+    return exists;
   }
 
-  collection(name: string) {
-    if (!this.db) throw new Error("Database not initialized.");
-    return this.db.collection(name);
+  private getCollection(collectionName: string) {
+    if (!this.db) throw new Error("Database not initialized");
+    return this.db.collection(collectionName);
   }
 
-  async getAll(collection: string, limit: number = 100) {
-    return await this.collection(collection).find().limit(limit).toArray();
+  async getAll(collection: string, limit = 100): Promise<WithId<Document>[]> {
+    return this.getCollection(collection).find().limit(limit).toArray();
   }
 
-
-  async findOne(collection: string, query: any) {
-    return this.collection(collection).findOne(query);
+  async findOne(collection: string, query: any): Promise<WithId<Document> | null> {
+    return this.getCollection(collection).findOne(query);
   }
 
-  async findMany(collection: string, query: any) {
-    return this.collection(collection).find(query).toArray();
+  async findMany(collection: string, query: any): Promise<WithId<Document>[]> {
+    return this.getCollection(collection).find(query).toArray();
   }
 
-  async insertOne(collection: string, data: any) {
-    return this.collection(collection).insertOne(data);
+  async insertOne(collection: string, doc: any): Promise<InsertOneResult<Document>> {
+    return this.getCollection(collection).insertOne(doc);
   }
 
-  async insertMany(collection: string, data: any[]) {
-    return this.collection(collection).insertMany(data);
+  async insertMany(collection: string, docs: any[]): Promise<InsertManyResult<Document>> {
+    return this.getCollection(collection).insertMany(docs);
   }
 
-  async updateOne(collection: string, query: any, newData: any) {
-    return this.collection(collection).updateOne(query, { $inc: newData });
+  // Changed here: update receives a full update object, no forced $inc
+  async updateOne(collection: string, query: any, update: any): Promise<UpdateResult> {
+    return this.getCollection(collection).updateOne(query, update);
   }
 
-  async updateMany(collection: string, query: any, newData: any) {
-    return this.collection(collection).updateMany(query, { $inc: newData });
+  async updateMany(collection: string, query: any, update: any): Promise<UpdateManyResult> {
+    return this.getCollection(collection).updateMany(query, update);
   }
 
-  async deleteOne(collection: string, query: any) {
-    return this.collection(collection).deleteOne(query);
+  async setOne(collection: string, query: any, data: any): Promise<UpdateResult> {
+    return this.getCollection(collection).updateOne(query, { $set: data });
   }
 
-  async deleteMany(collection: string, query: any) {
-    return this.collection(collection).deleteMany(query);
+  async setMany(collection: string, query: any, data: any): Promise<UpdateManyResult> {
+    return this.getCollection(collection).updateMany(query, { $set: data });
   }
 
-  async checkOne(collection: string, query: any) {
-    const result = await this.collection(collection).findOne(query);
-    return !!result;
+  async deleteOne(collection: string, query: any): Promise<DeleteResult> {
+    return this.getCollection(collection).deleteOne(query);
+  }
+
+  async deleteMany(collection: string, query: any): Promise<DeleteResult> {
+    return this.getCollection(collection).deleteMany(query);
+  }
+
+  async exists(collection: string, query: any): Promise<boolean> {
+    const doc = await this.getCollection(collection).findOne(query);
+    return !!doc;
+  }
+
+  async count(collection: string, query: any): Promise<number> {
+    return this.getCollection(collection).countDocuments(query);
+  }
+
+  async findWithLimit(collection: string, query: any, limit = 100): Promise<WithId<Document>[]> {
+    return this.getCollection(collection).find(query).limit(limit).toArray();
   }
 }
 
 const mongo = new MongoDB(url, dbName);
 
-// 🔌 Initialize and verify DB
 (async () => {
   try {
     await mongo.connect();
-    await mongo.isDBexist();
+    await mongo.checkDatabaseExists();
   } catch (error) {
     console.error("[MongoDB] Connection error:", error);
   }
 })();
 
-// ✅ Common Utility Handlers
-
-const handleCallbackAndError = (
-  result:
-    | string
-    | string[]
-    | UpdatedDocument
-    | Document
-    | (UpdatedDocument | null)[]
-    | UpdateResult
-    | null,
-  callback?: Function
-) => {
-  if (!mongo.isConnected()) {
-    return callback
-      ? callback(true, "Not connected to MongoDB")
-      : { error: true, reason: "Not connected to MongoDB" };
-  }
-  return callback ? callback(false, result) : { error: false, result };
+const formatDoc = (doc: WithId<Document> | null): Record<string, any> | null => {
+  if (!doc) return null;
+  const { _id, ...rest } = doc;
+  return { _id: _id.toString(), ...rest };
 };
 
-const handleError = (error: unknown, callback?: Function) =>
-  callback ? callback(true, error) : { error: true, result: error };
+/* const handleResult = <T>(result: T | null, error?: string | null): Result<T> => {
+  if (error) {
+    console.error("Error:", error);
+    return { success: false, error };
+  }
+  if (result) return { success: true, data: result };
+  return { success: false, error: "No results found" };
+}; */
 
-const formatResult = (result: WithId<Document> | null) =>
-  result ? { ...result, _id: result._id.toString() } : null;
+async function withErrorHandling<T>(
+  operation: () => Promise<T>,
+  callback?: (error: boolean, result: T | { error: string }) => void
+): Promise<T | { error: string }> {
+  if (!mongo.isConnected()) {
+    const error = { error: "Not connected to MongoDB" };
+    if (typeof callback === "function") callback(true, error);
+    return error;
+  }
 
-// ✅ Exports
-
-exports("isConnected", () => {
-  return mongo.isConnected();
-});
-
-export async function InsertOne(
-  collection: string,
-  query: string,
-  callback?: Function
-) {
   try {
-    const result = await mongo.insertOne(collection, query);
-    return handleCallbackAndError(result.insertedId.toString(), callback);
-  } catch (error) {
-    return handleError(error, callback);
+    const result = await operation();
+    if (typeof callback === "function") callback(false, result);
+    return result;
+  } catch (err: any) {
+    const error = { error: err?.message || String(err) };
+    if (typeof callback === "function") callback(true, error);
+    return error;
   }
 }
 
-export async function InsertMany(
-  collection: string,
-  query: string[],
-  callback?: Function
+
+
+// Exported API
+
+export const isConnected = () => mongo.isConnected();
+
+export async function InsertOne(
+  params: { collection: string; document: Record<string, any> },
+  callback?: (error: boolean, result: Result<InsertOneResult<Document>>) => void
 ) {
+  return withErrorHandling(() => mongo.insertOne(params.collection, params.document), callback);
+}
+
+export async function InsertMany(
+  params: { collection: string; data: Record<string, any>[] },
+  callback?: (error: boolean, result: Result<string[]>) => void
+) {
+  if (!mongo.isConnected()) {
+    const errorResult = { success: false, error: "Not connected to MongoDB" };
+    if (callback) return callback(true, errorResult), errorResult;
+    return errorResult;
+  }
+
   try {
-    const result = await mongo.insertMany(collection, query);
-    return handleCallbackAndError(
-      Object.values(result.insertedIds).map((v) => v.toString()),
-      callback
-    );
-  } catch (error) {
-    return handleError(error, callback);
+    const result = await mongo.insertMany(params.collection, params.data);
+    const ids = Object.values(result.insertedIds).map((id) => id.toString());
+    const successResult = { success: true, data: ids };
+    if (callback) return callback(false, successResult), successResult;
+    return successResult;
+  } catch (error: any) {
+    const errorResult = { success: false, error: String(error) };
+    if (callback) return callback(true, errorResult), errorResult;
+    return errorResult;
   }
 }
 
 export async function FindOne(
-  collection: string,
-  query: string,
-  callback?: Function
+  params: { collection: string; query: Record<string, any> },
+  callback?: (error: boolean, result: Result<Record<string, any> | null>) => void
 ) {
-  try {
-    const result = await mongo.findOne(collection, query);
-    /* return handleCallbackAndError(formatResult(result), callback); */
-    return result
-  } catch (error) {
-    return handleError(error, callback);
-  }
+  return withErrorHandling(async () => {
+    const result = await mongo.findOne(params.collection, params.query);
+    return formatDoc(result);
+  }, callback);
 }
+
+   
+
+
+
+
 
 export async function FindMany(
-  collection: string,
-  query: string,
-  callback?: Function
+  params: { collection: string; query: Record<string, any> },
+  callback?: (error: boolean, result: Result<Record<string, any>[]>) => void
 ) {
-  try {
-    const result = await mongo.findMany(collection, query);
-    return handleCallbackAndError(result.map(formatResult), callback);
-  } catch (error) {
-    return handleError(error, callback);
-  }
+  return withErrorHandling(async () => {
+    const results = await mongo.findMany(params.collection, params.query);
+    return results.map(formatDoc);
+  }, callback);
 }
-
 
 export async function FindAll(
-  collection: string,
-  limit: number,
-  callback?: Function
+  params: { collection: string; limit?: number },
+  callback?: (error: any, data?: Record<string, any>[]) => void
 ) {
   try {
-  
-    const result = await mongo.getAll(collection, limit);
+    const results = await mongo.getAll(params.collection, params.limit ?? 100);
+    const formatted = results.map(formatDoc);
+    if (callback) return callback(null, formatted);
+    return formatted;
+
     
-   
-    const formatted = result.map(formatResult);
-
-    if (callback) {
-      return callback(null, formatted); // Success via callback
-    }
-
-    return formatted; // Success via return
   } catch (error) {
-    if (callback) {
-      return callback(error); // Error via callback
-    }
-
-    throw error; // Error via exception
+    if (callback) return callback(error);
+    throw error;
   }
 }
 
-
 export async function UpdateOne(
-  collection: string,
-  query: string,
-  newData: object,
-  callback?: Function
+  params: { collection: string; query: Record<string, any>; newData: object },
+  callback?: (error: boolean, result: Result<UpdateResult>) => void
 ) {
-  try {
-    const result = await mongo.updateOne(collection, query, newData);
-    return handleCallbackAndError(result, callback);
-  } catch (error) {
-    return handleError(error, callback);
-  }
+  // Expect newData to be a MongoDB update object, e.g. { $set: {...} } or { $inc: {...} }
+  return withErrorHandling(() => mongo.updateOne(params.collection, params.query, params.newData), callback);
 }
 
 export async function UpdateMany(
-  collection: string,
-  query: string,
-  newData: object,
-  callback?: Function
+  params: { collection: string; query: Record<string, any>; newData: object },
+  callback?: (error: boolean, result: Result<UpdateManyResult>) => void
 ) {
-  try {
-    const result = await mongo.updateMany(collection, query, newData);
-    return handleCallbackAndError(result, callback);
-  } catch (error) {
-    return handleError(error, callback);
-  }
+  return withErrorHandling(() => mongo.updateMany(params.collection, params.query, params.newData), callback);
+}
+
+export async function SetOne(
+  params: { collection: string; query: Record<string, any>; newData: object },
+  callback?: (error: boolean, result: Result<UpdateResult>) => void
+) {
+  return withErrorHandling(() => mongo.setOne(params.collection, params.query, params.newData), callback);
+}
+
+export async function SetMany(
+  params: { collection: string; query: Record<string, any>; newData: object },
+  callback?: (error: boolean, result: Result<UpdateManyResult>) => void
+) {
+  return withErrorHandling(() => mongo.setMany(params.collection, params.query, params.newData), callback);
 }
 
 export async function DeleteOne(
-  collection: string,
-  query: string,
-  callback?: Function
+  params: { collection: string; query: Record<string, any> },
+  callback?: (error: boolean, result: Result<DeleteResult>) => void
 ) {
-  try {
-    const result = await mongo.deleteOne(collection, query);
-    return handleCallbackAndError(result, callback);
-  } catch (error) {
-    return handleError(error, callback);
-  }
+  return withErrorHandling(() => mongo.deleteOne(params.collection, params.query), callback);
 }
 
 export async function DeleteMany(
-  collection: string,
-  query: string,
-  callback?: Function
+  params: { collection: string; query: Record<string, any> },
+  callback?: (error: boolean, result: Result<DeleteResult>) => void
+) {
+  return withErrorHandling(() => mongo.deleteMany(params.collection, params.query), callback);
+}
+
+export async function CheckOne(
+  params: { collection: string; query: Record<string, any> },
+  callback?: (exists: boolean) => void
 ) {
   try {
-    const result = await mongo.deleteMany(collection, query);
-    return handleCallbackAndError(result, callback);
+    const exists = await mongo.exists(params.collection, params.query);
+    if (callback) callback(exists);
+    return exists;
   } catch (error) {
-    return handleError(error, callback);
+    if (callback) callback(false);
+    throw error;
   }
 }
 
-
-
-// Returns boolean depends on data existing
-export async function CheckOne(
-    collection: string,
-    query: string,
-    callback?: Function
+export async function Count(
+  params: { collection: string; query: Record<string, any> },
+  callback?: (error: any, count?: number) => void
 ) {
-    try  {
-        const res = await mongo.checkOne(collection, query);
-        return res
-    } catch (error) {
-        return handleError(error, callback);
-    }
+  try {
+    const count = await mongo.count(params.collection, params.query);
+    if (callback) callback(null, count);
+    return count;
+  } catch (error) {
+    if (callback) callback(error);
+    throw error;
+  }
+}
+
+export async function FindSpec(
+  params: { collection: string; query: Record<string, any>; limit?: number },
+  callback?: (error: any, data?: Record<string, any>[]) => void
+) {
+  try {
+    const results = await mongo.findWithLimit(params.collection, params.query, params.limit ?? 100);
+    const formatted = results.map(formatDoc);
+    if (callback) return callback(null, formatted);
+    return formatted;
+  } catch (error) {
+    if (callback) return callback(error);
+    throw error;
+  }
 }

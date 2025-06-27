@@ -48,6 +48,42 @@ RegisterCommand('getusers', function(source, args, rawCommand)
         end
     end)
 end, false)
+
+
+Mongo:FindOne({
+    collection = "developers",
+    query = { steamhex = identifier }
+}, function(err, existingUser)
+    if (err) then
+        print("Error searching developer whitelist:", err)
+        return cb(false)
+    end
+
+   
+
+    if (existingUser) then
+        -- User found in whitelist
+        print("User already in whitelist:", json.encode(existingUser))
+        cb(true)  -- Already whitelisted, treat as success
+    elseif (not existingUser) then
+        -- User not found, insert new whitelist entry
+        Mongo:InsertOne({
+            collection = "developers",
+            document = {
+                steamhex = identifier,
+                addedAt = os.date("!%Y-%m-%dT%H:%M:%SZ") -- ISO 8601 UTC timestamp
+            }
+        }, function(err, result)
+            if (err) then
+                print("Failed to add user to developer list:", identifier, err)
+                cb(false)
+            else
+                print("User added to developer list:", identifier)
+                cb(true)
+            end
+        end)
+    end
+end)
 ```
 
 
