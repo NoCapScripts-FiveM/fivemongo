@@ -99,19 +99,19 @@ class MongoDB {
   }
 
   // Changed here: update receives a full update object, no forced $inc
-  async updateOne(collection: string, query: any, update: any): Promise<UpdateResult> {
-    return this.getCollection(collection).updateOne(query, update);
+  async updateOne(collection: string, query: any, update: object): Promise<UpdateResult> {
+    return this.getCollection(collection).updateOne(query, { $set: update });
   }
 
-  async updateMany(collection: string, query: any, update: any): Promise<UpdateManyResult> {
-    return this.getCollection(collection).updateMany(query, update);
+  async updateMany(collection: string, query: any, update: object): Promise<UpdateManyResult> {
+    return this.getCollection(collection).updateMany(query, { $set: update });
   }
 
-  async setOne(collection: string, query: any, data: any): Promise<UpdateResult> {
-    return this.getCollection(collection).updateOne(query, { $set: data });
+  async setOne(collection: string, query: any, data: object): Promise<UpdateResult> {
+    return this.getCollection(collection).updateOne(query, { $inc: data });
   }
 
-  async setMany(collection: string, query: any, data: any): Promise<UpdateManyResult> {
+  async setMany(collection: string, query: any, data: object): Promise<UpdateManyResult> {
     return this.getCollection(collection).updateMany(query, { $set: data });
   }
 
@@ -192,10 +192,14 @@ export const isConnected = () => mongo.isConnected();
 
 export async function InsertOne(
   params: { collection: string; document: Record<string, any> },
-  callback?: (error: boolean, result: Result<InsertOneResult<Document>>) => void
-) {
-  return withErrorHandling(() => mongo.insertOne(params.collection, params.document), callback);
+  callback?: (error: boolean, result?: any) => void
+): Promise<Result<InsertOneResult<Document>>> {
+  return withErrorHandling(async () => {
+    const result = await mongo.insertOne(params.collection, params.document);
+    return { data: result }; // Use 'data' to match Result type
+  }, callback);
 }
+
 
 export async function InsertMany(
   params: { collection: string; data: Record<string, any>[] },
@@ -264,32 +268,35 @@ export async function FindAll(
 }
 
 export async function UpdateOne(
-  params: { collection: string; query: Record<string, any>; newData: object },
+  params: { collection: string; query: Record<string, any>; update: object },
   callback?: (error: boolean, result: Result<UpdateResult>) => void
 ) {
   // Expect newData to be a MongoDB update object, e.g. { $set: {...} } or { $inc: {...} }
-  return withErrorHandling(() => mongo.updateOne(params.collection, params.query, params.newData), callback);
+  return withErrorHandling(async () => {
+    const result = await mongo.updateOne(params.collection, params.query, params.update);
+    return { result };
+  }, callback);
 }
 
 export async function UpdateMany(
-  params: { collection: string; query: Record<string, any>; newData: object },
+  params: { collection: string; query: Record<string, any>; update: object },
   callback?: (error: boolean, result: Result<UpdateManyResult>) => void
 ) {
-  return withErrorHandling(() => mongo.updateMany(params.collection, params.query, params.newData), callback);
+  return withErrorHandling(() => mongo.updateMany(params.collection, params.query, params.update), callback);
 }
 
 export async function SetOne(
-  params: { collection: string; query: Record<string, any>; newData: object },
+  params: { collection: string; query: Record<string, any>; update: object },
   callback?: (error: boolean, result: Result<UpdateResult>) => void
 ) {
-  return withErrorHandling(() => mongo.setOne(params.collection, params.query, params.newData), callback);
+  return withErrorHandling(() => mongo.setOne(params.collection, params.query, params.update), callback);
 }
 
 export async function SetMany(
-  params: { collection: string; query: Record<string, any>; newData: object },
+  params: { collection: string; query: Record<string, any>; update: object },
   callback?: (error: boolean, result: Result<UpdateManyResult>) => void
 ) {
-  return withErrorHandling(() => mongo.setMany(params.collection, params.query, params.newData), callback);
+  return withErrorHandling(() => mongo.setMany(params.collection, params.query, params.update), callback);
 }
 
 export async function DeleteOne(
