@@ -17,6 +17,11 @@ A modern, lightweight **MongoDB wrapper** built for **FiveM** using Lua and Type
 
 ---
 
+
+## 🍋 MongoDB Install
+
+-  [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community/#std-label-install-mdb-community-edition)
+
 ## 📦 Supported Operations
 
 - `Mongo:Find()`  
