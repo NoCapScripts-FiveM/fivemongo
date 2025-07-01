@@ -6,6 +6,10 @@ A modern, lightweight **MongoDB wrapper** built for **FiveM** using Lua and Type
 
 ---
 
+## 🤔 For any issues or problems, we should leave.
+
+- [Issues Page](https://github.com/NoCapScripts-FiveM/fivemongo/issues)
+
 ## 🚀 Features
 
 - ✅ Clean and readable Lua-based API  
