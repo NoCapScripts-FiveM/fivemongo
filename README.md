@@ -1,43 +1,51 @@
 # 🍋 MongoDB Wrapper for FiveM
 
-> ⚠️ **This resource is currently in testing phase.** Expect frequent updates and improvements. Feedback is welcome!
+> ⚠️ **This resource is in active development.** Bugs and frequent updates are expected. Feedback and contributions are welcome!
 
-A modern and lightweight **MongoDB wrapper** built for **FiveM** using Lua. It provides a simple and efficient way to interact with MongoDB databases in your server scripts, supporting all the essential operations like `find`, `insert`, `update`, and `delete`.
+A modern, lightweight **MongoDB wrapper** built for **FiveM** using Lua. It provides a simple and efficient way to interact with MongoDB databases inside your server scripts — supporting all essential operations such as `find`, `insert`, `update`, `delete`, and more.
 
 ---
 
 ## 🚀 Features
 
-- ✅ Simple and readable Lua MongoDB API
-- ✅ Asynchronous operations with callback support
-- ✅ Support for `ObjectId` conversion
-- ✅ ESX/QBCore-friendly
-- ✅ Easily extendable for custom use cases
-- ✅ Built with scalability in mind
+- ✅ Clean and readable Lua-based API  
+- ✅ Asynchronous operations with callback support  
+- ✅ Automatic `ObjectId` handling  
+- ✅ Compatible with ESX / QBCore  
+- ✅ Easily extendable for custom use cases  
+- ✅ Built with scalability in mind  
 
 ---
 
 ## 📦 Supported Operations
 
-- `Mongo:Find()`
-- `Mongo:FindOne()`
-- `Mongo:InsertOne()`
-- `Mongo:UpdateOne()`
-- `Mongo:DeleteOne()`
-- `Mongo:FindMany()`
-- `Mongo:FindOneAndDelete()`
+- `Mongo:Find()`  
+- `Mongo:FindOne()`  
+- `Mongo:InsertOne()`  
+- `Mongo:InsertMany()`  
+- `Mongo:UpdateOne()`  
+- `Mongo:UpdateMany()`  
+- `Mongo:DeleteOne()`  
+- `Mongo:DeleteMany()`  
+- `Mongo:FindMany()`  
+- `Mongo:FindOneAndDelete()`  
+- `Mongo:Count()`  
+- `Mongo:Aggregate() `  *[TODO]*
+- `Mongo:FindSpec()` *(custom utility)*
 
 ---
 
-## 📚 Example Usage
+## 📚 Example Usages
+
+
 
 ```lua
 local Mongo
 RegisterCommand('getusers', function(source, args, rawCommand)
-    Mongo:Find({
+    Mongo:FindMany({
         collection = "users",
         query = {}
-    }, function(users)
+    }, function(err, users)
         if not users or #users == 0 then
             print("^1No users found.^7")
             return
@@ -84,6 +92,133 @@ Mongo:FindOne({
         end)
     end
 end)
+
+
+Mongo:InsertMany({
+    collection = "users",
+    documents = {
+        { username = "user1", email = "user1@example.com" },
+        { username = "user2", email = "user2@example.com" }
+    }
+}, function(err, result)
+    if err then
+        print("InsertMany Error:", err)
+    else
+        print("Inserted documents:", json.encode(result.insertedIds))
+    end
+end)
+
+
+Mongo:UpdateOne({
+    collection = "users",
+    query = { username = "jane_doe" },
+    update = {
+        ["$set"] = { last_login = os.date("!%Y-%m-%dT%H:%M:%SZ") } or last_login = os.date("!%Y-%m-%dT%H:%M:%SZ") 
+    }
+}, function(err, result)
+    if err then
+        print("UpdateOne Error:", err)
+    else
+        print("Modified count:", result.modifiedCount)
+    end
+end)
+
+
+
+Mongo:UpdateMany({
+    collection = "users",
+    query = { active = false },
+    update = {
+        ["$set"] = { active = true }
+    }
+}, function(err, result)
+    if err then
+        print("UpdateMany Error:", err)
+    else
+        print("Documents updated:", result.modifiedCount)
+    end
+end)
+
+
+
+
+Mongo:DeleteOne({
+    collection = "users",
+    query = { username = "user_to_delete" }
+}, function(err, result)
+    if err then
+        print("DeleteOne Error:", err)
+    else
+        print("Deleted count:", result.deletedCount)
+    end
+end)
+
+
+
+
+Mongo:DeleteMany({
+    collection = "users",
+    query = { inactive = true }
+}, function(err, result)
+    if err then
+        print("DeleteMany Error:", err)
+    else
+        print("Deleted documents:", result.deletedCount)
+    end
+end)
+
+
+Mongo:Count({
+    collection = "users",
+    query = { active = true }
+}, function(err, count)
+    if err then
+        print("CountDocuments Error:", err)
+    else
+        print("Active users count:", count)
+    end
+end)
+
+
+Mongo:FindSpec({
+    collection = "users",
+    query = { age = { ["$gt"] = 18 } },
+    limit = 50
+}, function(err, data)
+    if err then
+        print("Error fetching users:", err)
+        return
+    end
+
+    for _, user in ipairs(data) do
+        print(("User: %s | Identifier: %s"):format(user.username, user.identifier))
+    end
+end)
+
+
+
+-- TODO!
+Mongo:Aggregate({
+    collection = "users",
+    pipeline = {
+        { ["$match"] = { active = true } },
+        { ["$group"] = {
+            _id = "$country",
+            count = { ["$sum"] = 1 }
+        }}
+    }
+}, function(err, results)
+    if err then
+        print("Aggregate Error:", err)
+    else
+        for _, row in ipairs(results) do
+            print(("Country: %s | Users: %d"):format(row._id, row.count))
+        end
+    end
+end)
+
+
+
 ```
 
 

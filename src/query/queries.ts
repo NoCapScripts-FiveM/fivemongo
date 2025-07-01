@@ -154,14 +154,7 @@ const formatDoc = (doc: WithId<Document> | null): Record<string, any> | null => 
   return { _id: _id.toString(), ...rest };
 };
 
-/* const handleResult = <T>(result: T | null, error?: string | null): Result<T> => {
-  if (error) {
-    console.error("Error:", error);
-    return { success: false, error };
-  }
-  if (result) return { success: true, data: result };
-  return { success: false, error: "No results found" };
-}; */
+
 
 async function withErrorHandling<T>(
   operation: () => Promise<T>,
