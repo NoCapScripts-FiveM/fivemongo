@@ -2,7 +2,7 @@
 
 > ⚠️ **This resource is in active development.** Bugs and frequent updates are expected. Feedback and contributions are welcome!
 
-A modern, lightweight **MongoDB wrapper** built for **FiveM** using Lua. It provides a simple and efficient way to interact with MongoDB databases inside your server scripts — supporting all essential operations such as `find`, `insert`, `update`, `delete`, and more.
+A modern, lightweight **MongoDB wrapper** built for **FiveM** using Lua and TypeScript. It provides a simple and efficient way to interact with MongoDB databases inside your server scripts — supporting all essential operations such as `find`, `insert`, `update`, `delete`, and more.
 
 ---
 
